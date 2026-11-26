@@ -39,7 +39,7 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-    private val app by lazy { AppState(applicationContext, lifecycleScope) }
+    val app by lazy { AppState(applicationContext, lifecycleScope) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

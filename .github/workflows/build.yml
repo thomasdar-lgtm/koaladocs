@@ -56,6 +56,7 @@ jobs:
           if [ -f build.log ]; then
             grep -E "^e: |error:|FAILURE|FAILED|Test.*>|AssertionError|Expected|What went wrong|BUILD (SUCCESSFUL|FAILED)|\.kt:[0-9]+|\.xml:[0-9]+|AAPT|Could not" build.log | head -200 > /tmp/report/errors.txt || true
             tail -150 build.log > /tmp/report/tail.txt
+            cp app/build/shots/*.png /tmp/report/ 2>/dev/null || true
           fi
           for f in app/build/test-results/testDebugUnitTest/*.xml; do [ -f "$f" ] && grep -o '<testsuite [^>]*>' "$f"; grep -o '<testcase name="[^"]*"' "$f"; grep -A3 '<failure' "$f" | head -20; done > /tmp/report/tests.txt 2>/dev/null || true
           cd /tmp/report
