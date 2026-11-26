@@ -37,6 +37,10 @@ object Share {
         }
     }
 
+    /** Depuis le contexte de l'appli (pas un écran), Android exige FLAG_ACTIVITY_NEW_TASK. */
+    private fun chooser(ctx: Context, i: Intent, title: String): Intent =
+        Intent.createChooser(i, title).apply { if (ctx !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+
     fun send(ctx: Context, items: List<Pair<File, String>>) {
         if (items.isEmpty()) return
         val files = named(ctx, items)
@@ -49,13 +53,13 @@ object Share {
         i.type = "application/pdf"
         i.clipData = ClipData.newUri(ctx.contentResolver, "pdf", uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        ctx.startActivity(Intent.createChooser(i, if (uris.size == 1) "Partager le document" else "Partager ${uris.size} documents"))
+        ctx.startActivity(chooser(ctx, i, if (uris.size == 1) "Partager le document" else "Partager ${uris.size} documents"))
     }
 
     fun openWith(ctx: Context, f: File, name: String) {
         val u = uri(ctx, named(ctx, listOf(f to name))[0])
         val i = Intent(Intent.ACTION_VIEW).setDataAndType(u, "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        ctx.startActivity(Intent.createChooser(i, "Ouvrir avec"))
+        ctx.startActivity(chooser(ctx, i, "Ouvrir avec"))
     }
 
     fun print(ctx: Context, f: File, name: String) {
