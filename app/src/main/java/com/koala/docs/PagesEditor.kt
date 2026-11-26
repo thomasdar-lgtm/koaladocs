@@ -127,7 +127,7 @@ fun PagesScreen(app: AppState, docId: String) {
             }
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Pill("Enregistrer une copie", Modifier.weight(1f), enabled = changed) {
+                Pill("Copie", Modifier.weight(1f), glyph = G.Plus, enabled = changed) {
                     app.rebuild(docId, tiles.map { PageOp(it.index, it.rotate) }, asCopy = true, copyName = "${d.name} (modifié)")
                 }
                 Pill("Enregistrer", Modifier.weight(1f), primary = true, enabled = changed) {
