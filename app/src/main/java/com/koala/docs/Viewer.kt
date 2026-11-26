@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -51,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -199,8 +201,10 @@ fun PdfPages(file: File, key: Any, startPage: Int, modifier: Modifier, onFail: @
                 ) { Text("${current + 1} / ${v.count}", fontWeight = FontWeight.Bold, fontSize = 14.sp) }
             }
             zoom?.let { z ->
-                ZoomView(v, z, onIndex = { zoom = it }) {
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                ZoomView(v, z) { last ->
                     zoom = null
+                    scope.launch { list.scrollToItem(last) }
                 }
             }
         }
@@ -214,7 +218,7 @@ private fun Page(v: PdfView, i: Int, widthPx: Int, onZoom: () -> Unit) {
     Box(
         Modifier.fillMaxWidth().aspectRatio(pw.toFloat() / ph.coerceAtLeast(1))
             .shadow(6.dp, RoundedCornerShape(4.dp)).clip(RoundedCornerShape(4.dp)).background(Color.White)
-            .pointerInput(i) { detectTapGestures(onDoubleTap = { onZoom() }) }
+            .pointerInput(i) { detectTapGestures(onTap = { onZoom() }) }
             .pointerInput(i) {
                 // Pincer à deux doigts ouvre le zoom ; un seul doigt laisse défiler la liste
                 awaitEachGesture {
@@ -236,10 +240,33 @@ private fun Page(v: PdfView, i: Int, widthPx: Int, onZoom: () -> Unit) {
     }
 }
 
+/** Plein écran : glisser à gauche/droite pour changer de page, pincer ou toucher deux fois pour zoomer. */
 @Composable
-private fun ZoomView(v: PdfView, index: Int, onIndex: (Int) -> Unit, onClose: () -> Unit) {
-    BackHandler(onBack = onClose)
-    BoxWithConstraints(Modifier.fillMaxSize().background(Navy)) {
+private fun ZoomView(v: PdfView, start: Int, onClose: (Int) -> Unit) {
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { v.count }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    BackHandler { onClose(pager.currentPage) }
+    Box(Modifier.fillMaxSize().background(Navy)) {
+        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), pageSpacing = 16.dp) { index ->
+            ZoomPage(v, index)
+        }
+        IconBtn(G.Close, Color.White, bg = Navy.copy(alpha = 0.8f), modifier = Modifier.align(Alignment.TopStart).padding(10.dp)) { onClose(pager.currentPage) }
+        if (v.count > 1) Row(
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 20.dp)
+                .clip(RoundedCornerShape(26.dp)).background(Card).border(1.dp, Line, RoundedCornerShape(26.dp)).padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val p = pager.currentPage
+            IconBtn(G.Left, Yellow, enabled = p > 0) { scope.launch { pager.animateScrollToPage(p - 1) } }
+            Text("${p + 1} / ${v.count}", fontWeight = FontWeight.Bold, modifier = Modifier.width(80.dp), textAlign = TextAlign.Center)
+            IconBtn(G.Right, Yellow, enabled = p < v.count - 1) { scope.launch { pager.animateScrollToPage(p + 1) } }
+        }
+    }
+}
+
+@Composable
+private fun ZoomPage(v: PdfView, index: Int) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val bw = constraints.maxWidth.toFloat()
         val bh = constraints.maxHeight.toFloat()
         val (pw, ph) = v.sizes[index]
@@ -247,8 +274,8 @@ private fun ZoomView(v: PdfView, index: Int, onIndex: (Int) -> Unit, onClose: ()
         // Taille affichée à l'échelle 1 : la page entière tient dans l'écran
         val fitW = minOf(bw, bh * aspect)
         val fitH = fitW / aspect
-        var scale by remember(index) { mutableFloatStateOf(1f) }
-        var off by remember(index) { mutableStateOf(Offset.Zero) }
+        var scale by remember { mutableFloatStateOf(1f) }
+        var off by remember { mutableStateOf(Offset.Zero) }
         fun clamp(o: Offset, s: Float): Offset {
             val mx = maxOf(0f, (fitW * s - bw) / 2); val my = maxOf(0f, (fitH * s - bh) / 2)
             return Offset(o.x.coerceIn(-mx, mx), o.y.coerceIn(-my, my))
@@ -263,10 +290,21 @@ private fun ZoomView(v: PdfView, index: Int, onIndex: (Int) -> Unit, onClose: ()
                     })
                 }
                 .pointerInput(index) {
-                    detectTransformGestures { _, pan, z, _ ->
-                        val ns = (scale * z).coerceIn(1f, 6f)
-                        scale = ns
-                        off = clamp(off + pan, ns)
+                    // Zoom/déplacement seulement à deux doigts ou si la page est déjà agrandie ;
+                    // sinon le geste est laissé au défilement des pages (swipe).
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            if (ev.changes.none { it.pressed }) break
+                            if (ev.changes.count { it.pressed } >= 2 || scale > 1.01f) {
+                                val ns = (scale * ev.calculateZoom()).coerceIn(1f, 6f)
+                                scale = ns
+                                off = if (ns <= 1.01f) Offset.Zero else clamp(off + ev.calculatePan(), ns)
+                                ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                            }
+                        }
+                        if (scale <= 1.01f) { scale = 1f; off = Offset.Zero }
                     }
                 },
             contentAlignment = Alignment.Center,
@@ -278,17 +316,6 @@ private fun ZoomView(v: PdfView, index: Int, onIndex: (Int) -> Unit, onClose: ()
             ) {
                 bmp?.let { Image(it.asImageBitmap(), "Page ${index + 1}", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
                     ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Line) }
-            }
-        }
-        IconBtn(G.Close, Color.White, bg = Navy.copy(alpha = 0.8f), modifier = Modifier.align(Alignment.TopStart).padding(10.dp), onClick = onClose)
-        AnimatedVisibility(v.count > 1, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 20.dp), enter = fadeIn(), exit = fadeOut()) {
-            Row(
-                Modifier.clip(RoundedCornerShape(26.dp)).background(Card).border(1.dp, Line, RoundedCornerShape(26.dp)).padding(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconBtn(G.Left, Yellow, enabled = index > 0) { onIndex(index - 1) }
-                Text("${index + 1} / ${v.count}", fontWeight = FontWeight.Bold, modifier = Modifier.width(80.dp), textAlign = TextAlign.Center)
-                IconBtn(G.Right, Yellow, enabled = index < v.count - 1) { onIndex(index + 1) }
             }
         }
     }
