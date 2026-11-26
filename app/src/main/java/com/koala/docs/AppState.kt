@@ -135,7 +135,7 @@ class AppState(val ctx: Context, val scope: CoroutineScope) {
             for (u in uris) {
                 val name = Uris.name(ctx, u) ?: "Document"
                 val tmp = withContext(Dispatchers.IO) { Uris.copy(ctx, u) }
-                if (tmp == null) { msg("Impossible de lire « $name »"); continue }
+                if (tmp == null) { msg("Impossible de lire « $name »\n${Uris.lastError ?: ""}"); continue }
                 addPrepared(tmp, name, folder)?.let { added += it }
             }
             afterAdd(added)
@@ -157,7 +157,7 @@ class AppState(val ctx: Context, val scope: CoroutineScope) {
     fun importScan(uri: Uri) {
         val folder = currentFolder()
         work("Enregistrement du scan…") {
-            val tmp = withContext(Dispatchers.IO) { Uris.copy(ctx, uri) } ?: run { msg("Scan introuvable"); return@work }
+            val tmp = withContext(Dispatchers.IO) { Uris.copy(ctx, uri) } ?: run { msg("Scan introuvable\n${Uris.lastError ?: ""}"); return@work }
             addPrepared(tmp, "Scan du ${fmtStamp()}", folder)?.let { afterAdd(listOf(it)) }
         }
     }
@@ -171,7 +171,7 @@ class AppState(val ctx: Context, val scope: CoroutineScope) {
                 val u = i.data ?: return
                 work("Ouverture…") {
                     val name = Library.cleanName(Uris.name(ctx, u) ?: "Document")
-                    val tmp = withContext(Dispatchers.IO) { Uris.copy(ctx, u) } ?: run { msg("Fichier illisible"); return@work }
+                    val tmp = withContext(Dispatchers.IO) { Uris.copy(ctx, u) } ?: run { msg("Fichier illisible\n${Uris.lastError ?: ""}"); return@work }
                     val (f, _) = prepare(tmp, name) ?: return@work
                     screen = Screen.External(f, name)
                 }

@@ -85,13 +85,34 @@ object Uris {
         }
     }.getOrNull() ?: u.lastPathSegment?.substringAfterLast('/')
 
-    /** Copie le contenu d'un fichier reçu dans un fichier temporaire de l'appli. */
-    fun copy(ctx: Context, u: Uri): File? = runCatching {
+    /** Dernière erreur de lecture, affichée à l'utilisateur pour savoir ce qui bloque. */
+    @Volatile var lastError: String? = null
+
+    /** Copie le contenu d'un fichier reçu dans un fichier temporaire de l'appli (3 méthodes de lecture). */
+    fun copy(ctx: Context, u: Uri): File? {
         val dir = File(ctx.cacheDir, "incoming").apply { mkdirs() }
-        val f = File.createTempFile("in", ".pdf", dir)
-        ctx.contentResolver.openInputStream(u)!!.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
-        f
-    }.getOrNull()
+        val f = File(dir, "in${System.nanoTime()}.pdf")
+        val cr = ctx.contentResolver
+        val ways = listOf<() -> java.io.InputStream?>(
+            { cr.openInputStream(u) },
+            { cr.openAssetFileDescriptor(u, "r")?.createInputStream() },
+            { cr.openFileDescriptor(u, "r")?.let { java.io.FileInputStream(it.fileDescriptor) } },
+        )
+        val errs = ArrayList<String>()
+        for (w in ways) {
+            try {
+                val ins = w() ?: run { errs += "flux vide"; null } ?: continue
+                ins.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                if (f.length() > 0) { lastError = null; return f }
+                errs += "fichier vide"
+            } catch (e: Throwable) {
+                errs += "${e.javaClass.simpleName}: ${e.message}"
+            }
+        }
+        f.delete()
+        lastError = errs.distinct().joinToString(" / ").take(300)
+        return null
+    }
 
     fun temp(ctx: Context, prefix: String = "tmp"): File {
         val dir = File(ctx.cacheDir, "work").apply { mkdirs() }
