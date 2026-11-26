@@ -134,7 +134,8 @@ class AppState(val ctx: Context, val scope: CoroutineScope) {
             val added = ArrayList<Doc>()
             for (u in uris) {
                 val name = Uris.name(ctx, u) ?: "Document"
-                val tmp = withContext(Dispatchers.IO) { Uris.copy(ctx, u) } ?: run { msg("Impossible de lire « $name »"); continue }
+                val tmp = withContext(Dispatchers.IO) { Uris.copy(ctx, u) }
+                if (tmp == null) { msg("Impossible de lire « $name »"); continue }
                 addPrepared(tmp, name, folder)?.let { added += it }
             }
             afterAdd(added)
