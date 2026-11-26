@@ -66,7 +66,12 @@ fun pagesLabel(n: Int) = if (n <= 1) "$n page" else "$n pages"
 
 @Composable
 fun Logo(size: Int = 28) {
-    Row(verticalAlignment = Alignment.Bottom) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.res.painterResource(R.drawable.logo), contentDescription = null,
+            modifier = Modifier.size((size + 12).dp).clip(RoundedCornerShape(10.dp)),
+        )
+        Spacer(Modifier.width(10.dp))
         Text("Koala", color = Yellow, fontSize = size.sp, fontWeight = FontWeight.Black)
         Text("docs", color = Color.White, fontSize = size.sp, fontWeight = FontWeight.Black)
     }
