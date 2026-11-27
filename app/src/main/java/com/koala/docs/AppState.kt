@@ -37,6 +37,8 @@ class AppState(val ctx: Context, val scope: CoroutineScope) {
 
     var screen by mutableStateOf<Screen>(Screen.Home)
     var filter by mutableStateOf<Filter>(Filter.All)
+    /** Un dossier est ouvert (sinon l'accueil montre la grille des dossiers). */
+    var folderOpen by mutableStateOf(false)
     var busy by mutableStateOf<String?>(null)
     var progress by mutableStateOf<Float?>(null)
     var pwd by mutableStateOf<PwdAsk?>(null)
@@ -108,7 +110,7 @@ class AppState(val ctx: Context, val scope: CoroutineScope) {
         }
     }
 
-    private fun currentFolder() = (filter as? Filter.In)?.folderId
+    private fun currentFolder() = if (folderOpen) (filter as? Filter.In)?.folderId else null
 
     private suspend fun addPrepared(tmp: File, name: String, folder: String?): Doc? {
         val (f, pages) = prepare(tmp, name) ?: return null

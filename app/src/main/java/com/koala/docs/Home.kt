@@ -28,11 +28,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -92,13 +90,14 @@ fun HomeScreen(app: AppState, act: HomeActions) {
     var moveSel by remember { mutableStateOf(false) }
     var deleteSel by remember { mutableStateOf(false) }
     var mergeSel by remember { mutableStateOf<List<String>?>(null) }
-    val filter = app.filter
+    // Sur l'accueil (grille des dossiers), la recherche porte sur tous les documents
+    val filter = if (app.folderOpen) app.filter else Filter.All
     val focus = LocalFocusManager.current
 
     // Si le dossier affiché a été supprimé, on revient sur « Tous »
     LaunchedEffect(st) {
         val f = app.filter
-        if (f is Filter.In && st.folders.none { it.id == f.folderId }) app.filter = Filter.All
+        if (f is Filter.In && st.folders.none { it.id == f.folderId }) { app.filter = Filter.All; app.folderOpen = false }
         // On retire de la sélection ce qui n'existe plus
         sel.retainAll(st.docs.map { it.id }.toSet())
     }
@@ -109,11 +108,13 @@ fun HomeScreen(app: AppState, act: HomeActions) {
     }
     val selecting = sel.isNotEmpty()
 
-    BackHandler(enabled = selecting || fab || query.isNotEmpty()) {
+    val showFolders = !app.folderOpen && query.isBlank()
+    BackHandler(enabled = selecting || fab || query.isNotEmpty() || app.folderOpen) {
         when {
             fab -> fab = false
             selecting -> sel.clear()
-            else -> query = ""
+            query.isNotEmpty() -> query = ""
+            else -> app.folderOpen = false
         }
     }
 
@@ -162,20 +163,40 @@ fun HomeScreen(app: AppState, act: HomeActions) {
                 }
             }
 
-            // ---------- Dossiers ----------
+            // ---------- Titre du dossier ouvert ----------
             val counts = st.docs.groupingBy { it.folder }.eachCount()
             val unfiled = st.docs.count { d -> d.folder == null || st.folders.none { it.id == d.folder } }
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Chip("Tous · ${st.docs.size}", filter == Filter.All) { app.filter = Filter.All } }
-                item { Chip("Favoris", filter == Filter.Fav, glyph = G.StarFill) { app.filter = Filter.Fav } }
-                items(st.folders, key = { it.id }) { f ->
-                    val n = counts[f.id] ?: 0
-                    Chip(if (n > 0) "${f.name} · $n" else f.name, filter == Filter.In(f.id), Color(f.color)) { app.filter = Filter.In(f.id) }
+            if (app.folderOpen && !selecting) {
+                val f = (filter as? Filter.In)?.let { app.lib.folder(it.folderId) }
+                Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 8.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBtn(G.Back, Color.White) { app.folderOpen = false; query = "" }
+                    when {
+                        f != null -> Box(Modifier.size(12.dp).clip(CircleShape).background(Color(f.color)))
+                        filter == Filter.Fav -> Glyph(G.StarFill, Yellow, 18.dp)
+                        else -> Glyph(G.Doc, Yellow, 18.dp)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        f?.name ?: when (filter) { Filter.Fav -> "Favoris"; Filter.Unfiled -> "Non classés"; else -> "Tous les documents" },
+                        fontWeight = FontWeight.Black, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("${hits.size}", color = Muted, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.weight(1f))
+                    if (f != null) IconBtn(G.Edit, Muted) { editFolder = f }
                 }
-                if (unfiled > 0) item { Chip("Non classés · $unfiled", filter == Filter.Unfiled) { app.filter = Filter.Unfiled } }
-                item { Chip("Dossier", false, glyph = G.Plus) { newFolder = true } }
             }
+            Spacer(Modifier.height(8.dp))
 
+            // ---------- Dossiers (accueil) ----------
+            if (showFolders && !selecting && st.docs.isNotEmpty()) {
+                FolderGrid(
+                    st.folders, counts, st.docs.size, st.docs.count { it.fav }, unfiled,
+                    open = { app.filter = it; app.folderOpen = true },
+                    edit = { editFolder = it },
+                    add = { newFolder = true },
+                )
+            } else
             // ---------- Documents ----------
             if (hits.isEmpty()) {
                 when {
@@ -244,7 +265,7 @@ fun HomeScreen(app: AppState, act: HomeActions) {
     }
 
     // ---------- Fenêtres ----------
-    if (newFolder) FolderDialog(null, onDismiss = { newFolder = false }) { n, c -> app.filter = Filter.In(app.lib.addFolder(n, c).id); newFolder = false }
+    if (newFolder) FolderDialog(null, onDismiss = { newFolder = false }) { n, c -> app.filter = Filter.In(app.lib.addFolder(n, c).id); app.folderOpen = true; newFolder = false }
     editFolder?.let { f ->
         FolderDialog(f, onDismiss = { editFolder = null }, onDelete = { app.lib.deleteFolder(f.id); editFolder = null }) { n, c -> app.lib.editFolder(f.id, n, c); editFolder = null }
     }
@@ -357,5 +378,56 @@ private fun FabItem(g: G, label: String, onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Box(Modifier.size(52.dp).clip(CircleShape).background(CardHi).border(1.dp, Line, CircleShape), contentAlignment = Alignment.Center) { Glyph(g, Yellow, 24.dp) }
         Spacer(Modifier.width(6.dp))
+    }
+}
+
+/** Accueil : un carré par dossier, appui = ouvrir, appui long = modifier. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FolderGrid(
+    folders: List<Folder>, counts: Map<String?, Int>, total: Int, favs: Int, unfiled: Int,
+    open: (Filter) -> Unit, edit: (Folder) -> Unit, add: () -> Unit,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { FolderTile("Tous les documents", total, Yellow, G.Doc, { open(Filter.All) }) }
+        if (favs > 0) item { FolderTile("Favoris", favs, Yellow, G.StarFill, { open(Filter.Fav) }) }
+        items(folders, key = { it.id }) { f ->
+            FolderTile(f.name, counts[f.id] ?: 0, Color(f.color), G.Folder, { open(Filter.In(f.id)) }) { edit(f) }
+        }
+        if (unfiled > 0) item { FolderTile("Non classés", unfiled, Muted, G.Doc, { open(Filter.Unfiled) }) }
+        item {
+            Column(
+                Modifier.fillMaxWidth().height(118.dp).clip(RoundedCornerShape(18.dp))
+                    .border(1.5.dp, Line, RoundedCornerShape(18.dp)).clickable(onClick = add).padding(16.dp),
+                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Glyph(G.Plus, Muted, 28.dp)
+                Spacer(Modifier.height(6.dp))
+                Text("Nouveau dossier", color = Muted, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FolderTile(name: String, count: Int, color: Color, g: G, onClick: () -> Unit, onLong: (() -> Unit)? = null) {
+    Column(
+        Modifier.fillMaxWidth().height(118.dp).clip(RoundedCornerShape(18.dp)).background(Card)
+            .border(1.dp, Line, RoundedCornerShape(18.dp))
+            .combinedClickable(onClick = onClick, onLongClick = onLong).padding(14.dp),
+    ) {
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+            Glyph(g, color, 24.dp)
+        }
+        Spacer(Modifier.weight(1f))
+        Text(name, fontWeight = FontWeight.Black, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(if (count <= 1) "$count document" else "$count documents", color = Muted, fontSize = 13.sp, maxLines = 1)
     }
 }

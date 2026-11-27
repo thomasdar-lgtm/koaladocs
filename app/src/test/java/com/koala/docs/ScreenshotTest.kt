@@ -67,7 +67,7 @@ class ScreenshotTest {
     }
 
     @Test
-    fun dossier() { val lib = seed(); shoot("3-dossier") { it.app.filter = Filter.In(lib.state.value.folders.first { f -> f.name == "Maison" }.id) } }
+    fun dossier() { val lib = seed(); shoot("3-dossier") { it.app.filter = Filter.In(lib.state.value.folders.first { f -> f.name == "Maison" }.id); it.app.folderOpen = true } }
 
     @Test
     fun pages() { val lib = seed(); shoot("4-pages") { it.app.screen = Screen.Pages(lib.state.value.docs.last().id) } }
