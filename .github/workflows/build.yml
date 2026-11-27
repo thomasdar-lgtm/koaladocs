@@ -25,6 +25,23 @@ jobs:
           gradle-version: '8.14.3'
 
 
+      # Le moteur Android des tests (Robolectric) se télécharge parfois mal : on le met en cache
+      # et on le télécharge nous-mêmes, avec plusieurs essais.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-4.14.1-sdk34
+      - name: Robolectric
+        run: |
+          D=~/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i7
+          F=$D/android-all-instrumented-14-robolectric-10818077-i7.jar
+          if [ ! -s "$F" ]; then
+            mkdir -p $D
+            curl -fsSL --retry 6 --retry-delay 10 --retry-all-errors -o "$F" https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/14-robolectric-10818077-i7/android-all-instrumented-14-robolectric-10818077-i7.jar
+            curl -fsSL --retry 6 --retry-delay 10 --retry-all-errors -o "${F%.jar}.pom" https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/14-robolectric-10818077-i7/android-all-instrumented-14-robolectric-10818077-i7.pom
+          fi
+          ls -la $D
+
       - name: Build
         run: gradle testDebugUnitTest assembleRelease --no-daemon 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
 
