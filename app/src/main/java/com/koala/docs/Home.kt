@@ -325,7 +325,7 @@ private fun DocCard(app: AppState, h: Library.Hit, folder: Folder?, selected: Bo
             ) { Glyph(G.StarFill, Yellow, 13.dp) }
         }
         Column(Modifier.padding(horizontal = 8.dp, vertical = 7.dp)) {
-            Text(d.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 16.sp)
+            Text(d.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 16.sp)
             Spacer(Modifier.height(2.dp))
             Text("${d.pages} p. · ${fmtSize(d.size)}", color = Muted, fontSize = 11.sp, maxLines = 1)
             Text(fmtDate(d.added), color = Muted, fontSize = 11.sp, maxLines = 1)
