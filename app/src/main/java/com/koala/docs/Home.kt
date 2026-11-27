@@ -189,7 +189,7 @@ fun HomeScreen(app: AppState, act: HomeActions) {
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(104.dp),
+                    columns = GridCells.Fixed(3),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
