@@ -38,7 +38,12 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    testOptions { unitTests.isIncludeAndroidResources = true; unitTests.isReturnDefaultValues = true }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.isReturnDefaultValues = true
+        // Miroir Google de Maven Central, plus fiable pour le moteur de test Robolectric
+        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2") }
+    }
 
     buildFeatures {
         compose = true
