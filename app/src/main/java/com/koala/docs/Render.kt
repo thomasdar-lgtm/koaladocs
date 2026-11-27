@@ -25,8 +25,18 @@ class PdfView private constructor(private val pfd: ParcelFileDescriptor, private
     private val lock = Mutex()
     @Volatile private var closed = false
 
-    suspend fun render(index: Int, widthPx: Int): Bitmap? = withContext(Dispatchers.IO) {
+    /** Pages déjà dessinées (partagées entre la liste et le plein écran), ~64 Mo max. */
+    private val cache = object : LruCache<String, Bitmap>(64 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount
+    }
+
+    fun cached(index: Int, widthPx: Int): Bitmap? = cache.get("${index}_${widthPx.coerceIn(16, 4096)}")
+
+    suspend fun render(index: Int, widthPx: Int, keep: Boolean = true): Bitmap? = withContext(Dispatchers.IO) {
+        val key = "${index}_${widthPx.coerceIn(16, 4096)}"
+        cache.get(key)?.let { return@withContext it }
         lock.withLock {
+            cache.get(key)?.let { return@withLock it }
             if (closed || index !in 0 until count) return@withLock null
             runCatching {
                 r.openPage(index).use { p ->
@@ -35,6 +45,8 @@ class PdfView private constructor(private val pfd: ParcelFileDescriptor, private
                     val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                     b.eraseColor(Color.WHITE)
                     p.render(b, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    b.prepareToDraw() // envoi à la carte graphique hors de l'écran, pour éviter les à-coups
+                    if (keep) cache.put(key, b)
                     b
                 }
             }.getOrNull()

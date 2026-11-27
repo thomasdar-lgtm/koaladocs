@@ -168,6 +168,9 @@ fun TopBar(title: String, sub: String?, onBack: () -> Unit, actions: @Composable
     }
 }
 
+/** Largeur de rendu commune à la liste et au plein écran (pour réutiliser les images). */
+private fun listWidth(w: Int) = minOf(w, 1440)
+
 /** Lecture page par page ; pincer ou toucher deux fois une page pour zoomer. */
 @Composable
 fun PdfPages(file: File, key: Any, startPage: Int, modifier: Modifier, onFail: @Composable () -> Unit) {
@@ -193,18 +196,18 @@ fun PdfPages(file: File, key: Any, startPage: Int, modifier: Modifier, onFail: @
                     contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 110.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(v.count, key = { it }) { i -> Page(v, i, minOf(w, 1440)) { zoom = i } }
+                    items(v.count, key = { it }) { i -> Page(v, i, listWidth(w)) { zoom = i } }
                 }
                 Box(
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 84.dp)
                         .clip(RoundedCornerShape(16.dp)).background(Navy.copy(alpha = 0.85f)).padding(horizontal = 14.dp, vertical = 6.dp)
                 ) { Text("${current + 1} / ${v.count}", fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-            }
-            zoom?.let { z ->
-                val scope = androidx.compose.runtime.rememberCoroutineScope()
-                ZoomView(v, z) { last ->
-                    zoom = null
-                    scope.launch { list.scrollToItem(last) }
+                zoom?.let { z ->
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    ZoomView(v, z, listWidth(w)) { last ->
+                        zoom = null
+                        scope.launch { list.scrollToItem(last) }
+                    }
                 }
             }
         }
@@ -214,7 +217,7 @@ fun PdfPages(file: File, key: Any, startPage: Int, modifier: Modifier, onFail: @
 @Composable
 private fun Page(v: PdfView, i: Int, widthPx: Int, onZoom: () -> Unit) {
     val (pw, ph) = v.sizes[i]
-    val bmp by produceState<Bitmap?>(null, v, i) { value = v.render(i, widthPx) }
+    val bmp by produceState(v.cached(i, widthPx), v, i) { value = v.render(i, widthPx) }
     Box(
         Modifier.fillMaxWidth().aspectRatio(pw.toFloat() / ph.coerceAtLeast(1))
             .shadow(6.dp, RoundedCornerShape(4.dp)).clip(RoundedCornerShape(4.dp)).background(Color.White)
@@ -242,13 +245,14 @@ private fun Page(v: PdfView, i: Int, widthPx: Int, onZoom: () -> Unit) {
 
 /** Plein écran : glisser à gauche/droite pour changer de page, pincer ou toucher deux fois pour zoomer. */
 @Composable
-private fun ZoomView(v: PdfView, start: Int, onClose: (Int) -> Unit) {
+private fun ZoomView(v: PdfView, start: Int, baseW: Int, onClose: (Int) -> Unit) {
     val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { v.count }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     BackHandler { onClose(pager.currentPage) }
     Box(Modifier.fillMaxSize().background(Navy)) {
-        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), pageSpacing = 16.dp) { index ->
-            ZoomPage(v, index)
+        // La page suivante et la précédente sont préparées à l'avance pour un swipe fluide
+        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), pageSpacing = 16.dp, beyondViewportPageCount = 1) { index ->
+            ZoomPage(v, index, baseW)
         }
         IconBtn(G.Close, Color.White, bg = Navy.copy(alpha = 0.8f), modifier = Modifier.align(Alignment.TopStart).padding(10.dp)) { onClose(pager.currentPage) }
         if (v.count > 1) Row(
@@ -265,7 +269,7 @@ private fun ZoomView(v: PdfView, start: Int, onClose: (Int) -> Unit) {
 }
 
 @Composable
-private fun ZoomPage(v: PdfView, index: Int) {
+private fun ZoomPage(v: PdfView, index: Int, baseW: Int) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val bw = constraints.maxWidth.toFloat()
         val bh = constraints.maxHeight.toFloat()
@@ -280,7 +284,13 @@ private fun ZoomPage(v: PdfView, index: Int) {
             val mx = maxOf(0f, (fitW * s - bw) / 2); val my = maxOf(0f, (fitH * s - bh) / 2)
             return Offset(o.x.coerceIn(-mx, mx), o.y.coerceIn(-my, my))
         }
-        val bmp by produceState<Bitmap?>(null, v, index) { value = v.render(index, (fitW * 2.2f).toInt().coerceAtMost(2600)) }
+        // Image normale (déjà prête depuis la liste), puis haute définition seulement quand on zoome
+        val low by produceState(v.cached(index, baseW), v, index) { value = v.render(index, baseW) }
+        val zoomed = scale > 1.3f
+        val high by produceState<Bitmap?>(null, v, index, zoomed) {
+            value = if (zoomed) v.render(index, (fitW * 2.5f).toInt().coerceAtMost(2800), keep = false) else null
+        }
+        val bmp = high ?: low
         Box(
             Modifier.fillMaxSize()
                 .pointerInput(index) {
