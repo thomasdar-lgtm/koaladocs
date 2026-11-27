@@ -1,0 +1,17 @@
+<testsuite name="com.koala.docs.DocsTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-11-27T08:52:39.987Z" hostname="runnervm3lb7s" time="9.207">
+<testcase name="fusionGardeLOrdre"
+<testcase name="texteExtrait"
+<testcase name="restaurationSansDoublon"
+<testcase name="deplacerLaSelection"
+<testcase name="motDePasse"
+<testcase name="reorganiserTournerRetirer"
+<testcase name="plagesDePages"
+<testcase name="pasUnPdf"
+<testcase name="decoupe"
+<testcase name="bibliothequeRechercheEtPersistance"
+<testsuite name="com.koala.docs.ScreenshotTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-27T08:52:49.220Z" hostname="runnervm3lb7s" time="19.695">
+<testcase name="accueil"
+<testcase name="lecteur"
+<testcase name="pages"
+<testcase name="accueilVide"
+<testcase name="dossier"
