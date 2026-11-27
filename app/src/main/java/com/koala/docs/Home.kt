@@ -218,7 +218,7 @@ fun HomeScreen(app: AppState, act: HomeActions) {
                 ) {
                     items(hits, key = { it.doc.id }) { h ->
                         DocCard(
-                            app, h, app.lib.folder(h.doc.folder), selected = h.doc.id in sel, selecting = selecting,
+                            app, h, if (filter is Filter.In) null else app.lib.folder(h.doc.folder), selected = h.doc.id in sel, selecting = selecting,
                             onClick = {
                                 if (selecting) { if (h.doc.id in sel) sel.remove(h.doc.id) else sel.add(h.doc.id) }
                                 else app.screen = Screen.Viewer(h.doc.id)
@@ -395,7 +395,7 @@ private fun FolderGrid(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { FolderTile("Tous les documents", total, Yellow, G.Doc, { open(Filter.All) }) }
+        item { FolderTile("Tous", total, Yellow, G.Doc, { open(Filter.All) }) }
         if (favs > 0) item { FolderTile("Favoris", favs, Yellow, G.StarFill, { open(Filter.Fav) }) }
         items(folders, key = { it.id }) { f ->
             FolderTile(f.name, counts[f.id] ?: 0, Color(f.color), G.Folder, { open(Filter.In(f.id)) }) { edit(f) }
