@@ -79,7 +79,7 @@ object Thumbs {
 
     fun cached(d: Doc): Bitmap? = memSized.get(key(d))
 
-    suspend fun get(ctx: Context, file: File, d: Doc, width: Int = 360): Bitmap? = withContext(Dispatchers.IO) {
+    suspend fun get(ctx: Context, file: File, d: Doc, width: Int = 300): Bitmap? = withContext(Dispatchers.IO) {
         memSized.get(key(d))?.let { return@withContext it }
         lock.withLock {
             memSized.get(key(d))?.let { return@withLock it }

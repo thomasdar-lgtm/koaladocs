@@ -189,11 +189,11 @@ fun HomeScreen(app: AppState, act: HomeActions) {
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(158.dp),
+                    columns = GridCells.Adaptive(104.dp),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(hits, key = { it.doc.id }) { h ->
                         DocCard(
@@ -297,39 +297,39 @@ private fun DocCard(app: AppState, h: Library.Hit, folder: Folder?, selected: Bo
     val ctx = LocalContext.current
     val thumb by produceState(Thumbs.cached(d), d.id, d.modified) { value = Thumbs.get(ctx, app.lib.file(d.id), d) }
     Column(
-        Modifier.clip(RoundedCornerShape(18.dp)).background(if (selected) CardHi else Card)
-            .border(if (selected) 2.dp else 1.dp, if (selected) Yellow else Line, RoundedCornerShape(18.dp))
+        Modifier.clip(RoundedCornerShape(14.dp)).background(if (selected) CardHi else Card)
+            .border(if (selected) 2.dp else 1.dp, if (selected) Yellow else Line, RoundedCornerShape(14.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLong)
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(0.9f).padding(start = 10.dp, end = 10.dp, top = 10.dp).clip(RoundedCornerShape(10.dp)).background(Paper)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(0.85f).padding(start = 6.dp, end = 6.dp, top = 6.dp).clip(RoundedCornerShape(8.dp)).background(Paper)) {
             thumb?.let {
                 Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)
-            } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Glyph(G.Doc, Muted, 34.dp) }
+            } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Glyph(G.Doc, Muted, 26.dp) }
             if (folder != null) Box(
-                Modifier.align(Alignment.BottomStart).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(Navy.copy(alpha = 0.85f)).padding(horizontal = 7.dp, vertical = 3.dp)
+                Modifier.align(Alignment.BottomStart).padding(4.dp).clip(RoundedCornerShape(6.dp)).background(Navy.copy(alpha = 0.85f)).padding(horizontal = 5.dp, vertical = 2.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(Color(folder.color)))
-                    Spacer(Modifier.width(5.dp))
-                    Text(folder.name, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(Color(folder.color)))
+                    Spacer(Modifier.width(4.dp))
+                    Text(folder.name, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
                 }
             }
             if (selecting) Box(
-                Modifier.align(Alignment.TopEnd).padding(6.dp).size(26.dp).clip(CircleShape)
+                Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape)
                     .background(if (selected) Yellow else Navy.copy(alpha = 0.6f)).border(2.dp, if (selected) Yellow else Color.White, CircleShape),
                 contentAlignment = Alignment.Center,
-            ) { if (selected) Glyph(G.Check, Navy, 16.dp) }
+            ) { if (selected) Glyph(G.Check, Navy, 13.dp) }
             else if (d.fav) Box(
-                Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).clip(CircleShape).background(Navy.copy(alpha = 0.8f)),
+                Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape).background(Navy.copy(alpha = 0.8f)),
                 contentAlignment = Alignment.Center,
-            ) { Glyph(G.StarFill, Yellow, 16.dp) }
+            ) { Glyph(G.StarFill, Yellow, 13.dp) }
         }
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Text(d.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
-            Spacer(Modifier.height(4.dp))
-            Text("${pagesLabel(d.pages)} · ${fmtSize(d.size)}", color = Muted, fontSize = 12.sp, maxLines = 1)
-            Text(fmtDate(d.added), color = Muted, fontSize = 12.sp, maxLines = 1)
-            if (h.inText) Text("Trouvé dans le texte", color = Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 7.dp)) {
+            Text(d.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 16.sp)
+            Spacer(Modifier.height(2.dp))
+            Text("${d.pages} p. · ${fmtSize(d.size)}", color = Muted, fontSize = 11.sp, maxLines = 1)
+            Text(fmtDate(d.added), color = Muted, fontSize = 11.sp, maxLines = 1)
+            if (h.inText) Text("Dans le texte", color = Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
